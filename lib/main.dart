@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:osm_nominatim/osm_nominatim.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geocoding/geocoding.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,13 +29,47 @@ class MeuAppMapsState extends StatefulWidget {
 
 class _MeuAppMapsStatecomander extends State<MeuAppMapsState> {
   TextEditingController _endcontroller = TextEditingController();
+  double lat = 0.0;
+  double lng = 0.0;
+
+  Future<void> _getCoordinatesFromAddress(String endereco) async {
+    try {
+      final searchResult = await Nominatim.searchByName(
+        query: endereco,
+        limit: 1,
+        addressDetails: true,
+        extraTags: true,
+        nameDetails: true,
+      );
+
+      if (searchResult.isNotEmpty) {
+        final location = searchResult.first;
+        setState(() {
+          lat = location.lat;
+          lng = location.lon;
+        });
+        print('Coordenadas encontradas: Lat: $lat, Lon: $lng');
+         Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MapScreen(lat.toString(), lng.toString()),
+          )
+         );
+      } else {
+        print('Nenhum resultado encontrado para o endereço');
+      }
+    } catch (e) {
+      print('Erro ao buscar coordenadas: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          backgroundColor: const Color.fromARGB(255, 153, 252, 255),
-          title: Center(child: Text("Geolocalização"))),
+        backgroundColor: const Color.fromARGB(255, 153, 252, 255),
+        title: Center(child: Text("Geolocalização")),
+      ),
       body: Column(
         children: [
           TextField(
@@ -53,26 +87,10 @@ class _MeuAppMapsStatecomander extends State<MeuAppMapsState> {
           IconButton(
             onPressed: () async {
               String endereco = _endcontroller.text;
-              try {
-                List<Location> locations = await locationFromAddress(endereco);
-                if (locations.isNotEmpty) {
-                  double latitude = locations.first.latitude;
-                  double longitude = locations.first.longitude;
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          MapScreen(latitude.toString(), longitude.toString()),
-                    ),
-                  );
-                } else {
-                  _showErrorDialog(
-                      context, 'Nenhum local encontrado para o endereço informado.');
-                }
-              } catch (e) {
-                print('Erro ao buscar coordenadas: $e');
-                _showErrorDialog(context, 'Erro ao buscar coordenadas: $e');
+              if (endereco.isNotEmpty) {
+                await _getCoordinatesFromAddress(endereco);
+              } else {
+                print('Por favor, insira um endereço válido');
               }
             },
             icon: Icon(Icons.location_on),
@@ -116,7 +134,7 @@ class MapScreen extends StatelessWidget {
       body: FlutterMap(
         options: MapOptions(
           initialCenter: LatLng(lat, lng),
-          initialZoom: 8,
+          initialZoom: 13,
         ),
         children: [
           TileLayer(
